@@ -1,0 +1,8 @@
+data/memory.db
+data/inject_cache/
+logs/
+scripts/.venv/
+models/ruri-v3-30m/
+__pycache__/
+*.pyc
+uv.lock

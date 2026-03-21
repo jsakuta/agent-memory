@@ -1,0 +1,7 @@
+{
+  "name": "agent-memory",
+  "version": "1.0.0",
+  "description": "セッション横断の会話記憶。自動キャプチャ + FTS5/Vec ハイブリッド検索",
+  "author": { "name": "js" },
+  "keywords": ["memory", "search", "session", "fts5", "vector", "japanese"]
+}
