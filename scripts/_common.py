@@ -1,5 +1,12 @@
-import json, sys, math, tomllib
+import json, sys, math, tomllib, platform
 from pathlib import Path
+from collections import namedtuple
+
+# Python 3.13 WMI bypass: platform.system() calls _wmi_query() which hangs
+# when WMI service is slow (30s+). Pre-cache uname to skip WMI entirely.
+if sys.platform == "win32" and not hasattr(platform, '_uname_cache'):
+    _uname_nt = namedtuple('uname_result', ['system', 'node', 'release', 'version', 'machine'])
+    platform._uname_cache = _uname_nt('Windows', '', '', '', '')
 
 def get_plugin_root() -> Path:
     return Path(__file__).resolve().parent.parent

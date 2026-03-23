@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _common import read_hook_input, load_config, get_db_path, resolve_project, get_logger
-from _health import health_check
+from _health import read_health_status
 from _db import get_connection, init_db
 from _parser import parse_jsonl
 from _tokenizer import tokenize
@@ -214,9 +214,10 @@ if __name__ == "__main__":
     logger = get_logger("capture")
 
     try:
-        # Health check (heavy — imports fugashi/sqlite-vec/onnxruntime)
-        if not health_check():
-            logger.warning("Health check failed, skipping capture")
+        # Lightweight health check (reads health.json only, no heavy imports)
+        status = read_health_status()
+        if status.get("consecutive_failures", 0) >= 3:
+            logger.warning("Health check shows repeated failures, skipping capture")
             sys.exit(0)
 
         hook_input = read_hook_input()

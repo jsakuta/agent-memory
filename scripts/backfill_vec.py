@@ -1,7 +1,13 @@
-"""Batch backfill Vec embeddings for existing chunks."""
+"""Batch backfill Vec embeddings for existing chunks.
+
+Used in two contexts:
+  1. SessionStart hook (background) — auto-backfills previous session's chunks
+  2. Manual invocation — backfill all missing embeddings
+"""
 import sys
 import struct
 import time
+import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -10,10 +16,49 @@ from _common import load_config, get_db_path, get_logger
 from _db import get_connection
 from _embedder import Embedder
 
+LOCK_FILE = Path(__file__).resolve().parent.parent / "logs" / "backfill_vec.lock"
+
+
+def _acquire_lock() -> bool:
+    """Simple PID-based lock. Returns True if lock acquired."""
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if LOCK_FILE.exists():
+        try:
+            old_pid = int(LOCK_FILE.read_text().strip())
+            # Check if process is still running
+            try:
+                os.kill(old_pid, 0)
+                return False  # Process still alive
+            except OSError:
+                pass  # Stale lock — process dead
+        except (ValueError, IOError):
+            pass  # Corrupt lock file
+    LOCK_FILE.write_text(str(os.getpid()))
+    return True
+
+
+def _release_lock():
+    try:
+        LOCK_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
+
 
 def backfill(batch_size: int = 100):
     """Find chunks without vec embeddings and generate them."""
     logger = get_logger("backfill")
+
+    if not _acquire_lock():
+        logger.info("Another backfill_vec is already running, skipping")
+        return
+
+    try:
+        _backfill_inner(batch_size, logger)
+    finally:
+        _release_lock()
+
+
+def _backfill_inner(batch_size: int, logger):
     config = load_config()
 
     db_path = get_db_path(config)

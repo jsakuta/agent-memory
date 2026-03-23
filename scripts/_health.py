@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import _common  # noqa: F401 — triggers WMI bypass on Windows
 
 def _health_json_path() -> Path:
     return Path(__file__).resolve().parent.parent / "logs" / "health.json"
