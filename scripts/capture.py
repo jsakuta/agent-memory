@@ -1,28 +1,20 @@
-"""Stop hook: JSONL差分 → SQLite + FTS5 + Vec。
+"""Stop hook: JSONL差分 → SQLite + FTS5。
+Vec embedding は backfill_vec.py に委託（fire-and-forget）。
 process_session() は一括取り込み (Task 16) でも使用する公開API。
 """
 import json
 import sys
 import time
-import struct
 from pathlib import Path
 from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import read_hook_input, load_config, get_db_path, get_data_root, resolve_project, get_logger
+from _common import read_hook_input, load_config, get_db_path, resolve_project, get_logger
 from _health import read_health_status
 from _db import get_connection, init_db
 from _parser import parse_jsonl
 from _tokenizer import tokenize
-
-# Try to import embedder (optional — FTS5-only mode if unavailable)
-try:
-    from _embedder import Embedder
-    _embedder_available = True
-except ImportError:
-    _embedder_available = False
-
 
 def process_session(jsonl_path: str, session_id: str, cwd: str,
                     config: dict | None = None, time_limit: float | None = None):
@@ -86,20 +78,6 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
         conn.close()
         return
 
-    # Load embedder if available
-    embedder = None
-    if _embedder_available:
-        try:
-            vec_config = config.get("vec", {})
-            if vec_config.get("enabled", True):
-                model_path = (get_data_root()
-                              / vec_config.get("model_path", "models/ruri-v3-30m"))
-                embedder = Embedder(str(model_path))
-                if not embedder.available:
-                    embedder = None
-        except Exception:
-            embedder = None
-
     # Get existing chunk count for chunk_index
     existing_count = conn.execute(
         "SELECT COUNT(*) FROM chunks WHERE session_id = ?", (session_id,)
@@ -153,21 +131,6 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
                 "VALUES (?, ?, ?)",
                 (rowid, user_tokenized, assistant_tokenized)
             )
-
-            # Insert into vec_chunks if embedder available
-            if embedder:
-                try:
-                    combined_text = (user_text + " " + assistant_text).strip()
-                    embedding = embedder.embed(combined_text)
-                    if embedding:
-                        # Pack as float32 binary
-                        vec_bytes = struct.pack(f'{len(embedding)}f', *embedding)
-                        conn.execute(
-                            "INSERT INTO vec_chunks(rowid, embedding) VALUES (?, ?)",
-                            (rowid, vec_bytes)
-                        )
-                except Exception as e:
-                    logger.warning(f"Vec embedding failed for chunk {rowid}: {e}")
 
         # UPSERT session
         timestamp_first = exchanges[0].timestamp if exchanges else now_iso

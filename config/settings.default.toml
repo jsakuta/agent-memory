@@ -4,7 +4,7 @@ recency_count = 3
 fts_candidate_limit = 100
 result_limit = 20
 inject_cache_ttl_seconds = 300
-half_life_days = 14.0
+half_life_days = 30.0
 recency_floor = 0.01
 access_boost_factor = 0.3
 
@@ -16,5 +16,5 @@ access_boost_factor = 0.3
 
 [vec]
 enabled = true
-model_path = "models/ruri-v3-30m"
-embedding_dim = 256
+model_path = "models/ruri-v3-130m"
+embedding_dim = 512

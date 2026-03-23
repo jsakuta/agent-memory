@@ -1,5 +1,5 @@
 // setup.mjs — First-run venv bootstrap for agent-memory
-import { execFileSync } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import { existsSync, copyFileSync, readFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { platform } from "os";
@@ -91,15 +91,30 @@ function main() {
   }
 
   // Copy ONNX model to PLUGIN_DATA if not present
-  const modelSrc = join(PLUGIN_ROOT, "models", "ruri-v3-30m");
-  const modelDst = join(PLUGIN_DATA, "models", "ruri-v3-30m");
-  if (existsSync(modelSrc) && !existsSync(join(modelDst, "model.onnx"))) {
+  const modelSrc = join(PLUGIN_ROOT, "models", "ruri-v3-130m");
+  const modelDst = join(PLUGIN_DATA, "models", "ruri-v3-130m");
+  if (existsSync(modelSrc) && !existsSync(join(modelDst, "model_int8.onnx"))) {
     mkdirSync(modelDst, { recursive: true });
-    for (const f of ["model.onnx", "tokenizer.json"]) {
+    for (const f of ["model_int8.onnx", "model.onnx", "tokenizer.json"]) {
       const s = join(modelSrc, f);
       if (existsSync(s)) copyFileSync(s, join(modelDst, f));
     }
-    process.stderr.write("agent-memory: ONNX model copied to data dir\n");
+    process.stderr.write("agent-memory: ONNX model (ruri-v3-130m) copied to data dir\n");
+  }
+
+  // Fire-and-forget backfill safety net
+  const venvPyFinal = platform() === "win32"
+    ? join(PLUGIN_DATA, ".venv", "Scripts", "python.exe")
+    : join(PLUGIN_DATA, ".venv", "bin", "python");
+  if (existsSync(venvPyFinal)) {
+    const env = { ...process.env };
+    if (process.env.CLAUDE_PLUGIN_DATA) env.CLAUDE_PLUGIN_DATA = process.env.CLAUDE_PLUGIN_DATA;
+    const child = spawn(venvPyFinal, [join(__dirname, "backfill_vec.py")], {
+      detached: true,
+      stdio: "ignore",
+      env,
+    });
+    child.unref();
   }
 }
 

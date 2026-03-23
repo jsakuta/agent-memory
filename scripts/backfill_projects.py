@@ -9,14 +9,20 @@ from _db import get_connection
 
 
 def main():
+    recalc_all = "--all" in sys.argv
     config = load_config()
     db_path = get_db_path(config)
     conn = get_connection(db_path)
     project_map = config.get("projects", {})
 
-    rows = conn.execute(
-        "SELECT session_id, cwd FROM sessions WHERE project = '' OR project IS NULL"
-    ).fetchall()
+    if recalc_all:
+        rows = conn.execute(
+            "SELECT session_id, cwd FROM sessions"
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT session_id, cwd FROM sessions WHERE project = '' OR project IS NULL"
+        ).fetchall()
 
     updated = 0
     for session_id, cwd in rows:

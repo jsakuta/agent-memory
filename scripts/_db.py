@@ -74,7 +74,7 @@ def init_db(conn: sqlite3.Connection):
 
     # Vec table (separate because CREATE VIRTUAL TABLE IF NOT EXISTS may not work with vec0)
     try:
-        conn.execute("CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[256])")
+        conn.execute("CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[512])")
     except sqlite3.OperationalError:
         pass  # Already exists
 

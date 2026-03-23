@@ -74,8 +74,29 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
         project_filter = ""
         project_params = []
 
-    # Stage 1: OR search
-    if tokens:
+    # Stage 0: AND search (all terms must match) — skip for single token
+    if len(tokens) > 1:
+        and_query = " AND ".join(f'"{t}"' for t in tokens)
+        try:
+            rows = conn.execute(
+                f"""
+                SELECT chunks_fts.rowid, rank
+                FROM chunks_fts
+                JOIN chunks c ON c.id = chunks_fts.rowid
+                WHERE chunks_fts MATCH ?
+                {project_filter}
+                ORDER BY rank
+                LIMIT ?
+            """,
+                [and_query] + project_params + [fts_limit],
+            ).fetchall()
+            for rank_idx, (rowid, _score) in enumerate(rows, 1):
+                fts_results[rowid] = rank_idx
+        except Exception as e:
+            logger.warning(f"FTS Stage 0 (AND) error: {e}")
+
+    # Stage 1: OR search (fallback if AND returned < 5 results)
+    if len(fts_results) < 5 and tokens:
         fts_query = " OR ".join(tokens)
         try:
             rows = conn.execute(
@@ -145,14 +166,14 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
             if vec_config.get("enabled", True):
                 model_path = (
                     get_data_root()
-                    / vec_config.get("model_path", "models/ruri-v3-30m")
+                    / vec_config.get("model_path", "models/ruri-v3-130m")
                 )
-                embedder = Embedder(str(model_path))
+                embedder = Embedder(str(model_path), max_length=8192)
         except Exception:
             pass
 
     if embedder and embedder.available:
-        query_vec = embedder.embed(query)
+        query_vec = embedder.embed(query, prefix="検索クエリ: ")
         if query_vec:
             vec_bytes = struct.pack(f"{len(query_vec)}f", *query_vec)
             try:

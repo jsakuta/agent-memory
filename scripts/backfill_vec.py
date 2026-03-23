@@ -12,11 +12,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import load_config, get_db_path, get_logger
+from _common import load_config, get_db_path, get_data_root, get_logger
 from _db import get_connection
 from _embedder import Embedder
 
-LOCK_FILE = Path(__file__).resolve().parent.parent / "logs" / "backfill_vec.lock"
+LOCK_FILE = None  # Resolved lazily in backfill()
 
 
 LOCK_STALE_SECONDS = 1800  # 30 minutes
@@ -53,7 +53,11 @@ def _release_lock():
 
 def backfill(batch_size: int = 100):
     """Find chunks without vec embeddings and generate them."""
+    global LOCK_FILE
     logger = get_logger("backfill")
+
+    # Resolve lock file path lazily (needs config)
+    LOCK_FILE = get_data_root() / "logs" / "backfill_vec.lock"
 
     if not _acquire_lock():
         logger.info("Another backfill_vec is already running, skipping")
@@ -74,10 +78,10 @@ def _backfill_inner(batch_size: int, logger):
         return
 
     vec_config = config.get("vec", {})
-    model_path = Path(__file__).resolve().parent.parent / vec_config.get(
-        "model_path", "models/ruri-v3-30m"
+    model_path = get_data_root() / vec_config.get(
+        "model_path", "models/ruri-v3-130m"
     )
-    embedder = Embedder(str(model_path))
+    embedder = Embedder(str(model_path), max_length=8192)
 
     if not embedder.available:
         print("Embedder not available. Check model files.")
@@ -108,12 +112,18 @@ def _backfill_inner(batch_size: int, logger):
     errors = 0
     start = time.time()
 
+    # Limit text to ~2000 chars (~500 tokens) to keep embed time < 1s per chunk
+    MAX_CHARS = 2000
+
     for i, (rowid, user_text, assistant_text) in enumerate(missing):
         combined = ((user_text or "") + " " + (assistant_text or "")).strip()
         if not combined:
             continue
 
-        embedding = embedder.embed(combined)
+        if len(combined) > MAX_CHARS:
+            combined = combined[:MAX_CHARS]
+
+        embedding = embedder.embed(combined, prefix="検索文書: ")
         if embedding:
             try:
                 vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
