@@ -2,11 +2,21 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/setup.mjs\"",
+            "timeout": 120000
+          }
+        ]
+      },
+      {
         "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c \"'${CLAUDE_PLUGIN_ROOT}/scripts/.venv/Scripts/python' '${CLAUDE_PLUGIN_ROOT}/scripts/inject.py'\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/run-inject.mjs\"",
             "timeout": 5000
           }
         ]
@@ -17,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c \"'${CLAUDE_PLUGIN_ROOT}/scripts/.venv/Scripts/python' '${CLAUDE_PLUGIN_ROOT}/scripts/capture.py'\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/run-capture.mjs\"",
             "timeout": 5000
           }
         ]

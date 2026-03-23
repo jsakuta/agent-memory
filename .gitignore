@@ -1,8 +1,18 @@
+# Runtime data (lives in CLAUDE_PLUGIN_DATA for distributed installs)
 data/memory.db
 data/inject_cache/
+data/path_cache.json
 logs/
+
+# Python
 scripts/.venv/
-models/ruri-v3-30m/
+scripts/__pycache__/
 __pycache__/
 *.pyc
-uv.lock
+
+# Keep directory structure
+!data/.gitkeep
+!logs/.gitkeep
+
+# Node
+node_modules/

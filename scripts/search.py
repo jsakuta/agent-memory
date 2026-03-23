@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import compute_recency, get_db_path, get_logger, load_config
+from _common import compute_recency, get_data_root, get_db_path, get_logger, load_config
 from _db import get_connection
 from _tokenizer import tokenize_query
 
@@ -144,7 +144,7 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
             vec_config = config.get("vec", {})
             if vec_config.get("enabled", True):
                 model_path = (
-                    Path(__file__).resolve().parent.parent
+                    get_data_root()
                     / vec_config.get("model_path", "models/ruri-v3-30m")
                 )
                 embedder = Embedder(str(model_path))

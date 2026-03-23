@@ -3,7 +3,10 @@ from pathlib import Path
 import _common  # noqa: F401 — triggers WMI bypass on Windows
 
 def _health_json_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "logs" / "health.json"
+    from _common import get_data_root
+    log_dir = get_data_root() / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir / "health.json"
 
 def health_check() -> bool:
     """fugashi/sqlite3/onnxruntime の import 検証（重量級）。

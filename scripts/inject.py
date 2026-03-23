@@ -15,6 +15,7 @@ from _common import (
     read_hook_input,
     load_config,
     get_db_path,
+    get_data_root,
     resolve_project,
     get_logger,
     compute_recency,
@@ -61,7 +62,7 @@ def main():
             )
 
         # ── Cleanup stale cache files (>24h) ──
-        cache_dir = Path(__file__).resolve().parent.parent / "data" / "inject_cache"
+        cache_dir = get_data_root() / "inject_cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
         try:
             now = time.time()

@@ -1,4 +1,4 @@
-import json, sys, math, tomllib, platform
+import json, os, sys, math, tomllib, platform
 from pathlib import Path
 from collections import namedtuple
 
@@ -11,15 +11,39 @@ if sys.platform == "win32" and not hasattr(platform, '_uname_cache'):
 def get_plugin_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
+def get_data_root() -> Path:
+    """Runtime data の root。CLAUDE_PLUGIN_DATA > PLUGIN_ROOT の順で解決。"""
+    plugin_data = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if plugin_data:
+        return Path(plugin_data)
+    return get_plugin_root()
+
 def load_config() -> dict:
-    config_path = get_plugin_root() / "config" / "settings.toml"
-    with open(config_path, "rb") as f:
-        return tomllib.load(f)
+    # 1. デフォルト設定（PLUGIN_ROOT 同梱）
+    default_path = get_plugin_root() / "config" / "settings.default.toml"
+    if not default_path.exists():
+        # フォールバック: 旧名 settings.toml
+        default_path = get_plugin_root() / "config" / "settings.toml"
+    with open(default_path, "rb") as f:
+        config = tomllib.load(f)
+    # 2. ユーザー設定（上書きマージ）
+    #    PLUGIN_DATA が設定済み → PLUGIN_DATA/settings.toml
+    #    未設定（ローカル開発）→ PLUGIN_ROOT/config/settings.toml （旧互換）
+    plugin_data = os.environ.get("CLAUDE_PLUGIN_DATA")
+    if plugin_data:
+        user_path = Path(plugin_data) / "settings.toml"
+    else:
+        user_path = get_plugin_root() / "config" / "settings.toml"
+    if user_path.exists() and user_path != default_path:
+        with open(user_path, "rb") as f:
+            user_config = tomllib.load(f)
+        config.update(user_config)
+    return config
 
 def get_db_path(config: dict | None = None) -> Path:
     if config is None:
         config = load_config()
-    return get_plugin_root() / config["db_path"]
+    return get_data_root() / config["db_path"]
 
 def read_hook_input() -> dict:
     try:
@@ -53,7 +77,9 @@ def compute_recency(days: float, hit_count: int,
 
 def get_logger(name: str):
     import logging
-    log_path = get_plugin_root() / "logs" / f"{name}.log"
+    log_dir = get_data_root() / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"{name}.log"
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.FileHandler(log_path, encoding="utf-8")

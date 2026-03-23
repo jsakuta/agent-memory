@@ -1,0 +1,20 @@
+db_path = "memory.db"
+token_budget = 2000
+recency_count = 3
+fts_candidate_limit = 100
+result_limit = 20
+inject_cache_ttl_seconds = 300
+half_life_days = 14.0
+recency_floor = 0.01
+access_boost_factor = 0.3
+
+# [projects] はユーザーローカル設定（${CLAUDE_PLUGIN_DATA}/settings.toml）に記載
+# 例:
+# [projects]
+# "/Users/yourname/repos/my-project" = "my-project"
+# "C:/Users/yourname/repos/another" = "another"
+
+[vec]
+enabled = true
+model_path = "models/ruri-v3-30m"
+embedding_dim = 256

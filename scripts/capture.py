@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _common import read_hook_input, load_config, get_db_path, resolve_project, get_logger
+from _common import read_hook_input, load_config, get_db_path, get_data_root, resolve_project, get_logger
 from _health import read_health_status
 from _db import get_connection, init_db
 from _parser import parse_jsonl
@@ -92,7 +92,7 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
         try:
             vec_config = config.get("vec", {})
             if vec_config.get("enabled", True):
-                model_path = (Path(__file__).resolve().parent.parent
+                model_path = (get_data_root()
                               / vec_config.get("model_path", "models/ruri-v3-30m"))
                 embedder = Embedder(str(model_path))
                 if not embedder.available:
