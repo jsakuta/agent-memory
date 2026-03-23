@@ -19,8 +19,11 @@ from _embedder import Embedder
 LOCK_FILE = Path(__file__).resolve().parent.parent / "logs" / "backfill_vec.lock"
 
 
+LOCK_STALE_SECONDS = 1800  # 30 minutes
+
+
 def _acquire_lock() -> bool:
-    """Simple PID-based lock. Returns True if lock acquired."""
+    """PID + mtime based lock. Returns True if lock acquired."""
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     if LOCK_FILE.exists():
         try:
@@ -28,11 +31,15 @@ def _acquire_lock() -> bool:
             # Check if process is still running
             try:
                 os.kill(old_pid, 0)
-                return False  # Process still alive
+                # Process alive — check if hung (mtime > 30 min)
+                age = time.time() - LOCK_FILE.stat().st_mtime
+                if age < LOCK_STALE_SECONDS:
+                    return False  # Process alive and recent — lock valid
+                # else: process alive but hung for 30+ min — treat as stale
             except OSError:
-                pass  # Stale lock — process dead
+                pass  # Process dead — stale lock
         except (ValueError, IOError):
-            pass  # Corrupt lock file
+            pass  # Corrupt lock file — treat as stale
     LOCK_FILE.write_text(str(os.getpid()))
     return True
 

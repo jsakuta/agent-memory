@@ -60,9 +60,18 @@ def main():
                 "`/memory-health` で診断してください。"
             )
 
-        # ── Idempotency check (inject_cache TTL) ──
+        # ── Cleanup stale cache files (>24h) ──
         cache_dir = Path(__file__).resolve().parent.parent / "data" / "inject_cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            now = time.time()
+            for f in cache_dir.glob("*.json"):
+                if now - f.stat().st_mtime > 86400:
+                    f.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        # ── Idempotency check (inject_cache TTL) ──
         cache_file = cache_dir / f"{session_id}.json"
         ttl = config.get("inject_cache_ttl_seconds", 300)
 

@@ -17,6 +17,7 @@ description: >
 cd ~/.claude/plugins/local/agent-memory/scripts
 .venv/Scripts/python -c "
 import sys; sys.path.insert(0, '.')
+import _common  # WMI bypass (Python 3.13 platform.system() hang fix)
 import json
 from pathlib import Path
 from _common import get_db_path, load_config
