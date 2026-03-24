@@ -1,11 +1,11 @@
-"""PM_Vault外の .claude/projects/ からセッションを一括取込する。"""
+""".claude/projects/ からセッションを一括取込する。"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _common import load_config, get_db_path, get_logger
-from _db import get_connection
+from _db import get_connection, init_db
 from capture import process_session
 from _path_resolver import resolve_real_path
 
@@ -14,8 +14,10 @@ def main():
     logger = get_logger("backfill_external")
     config = load_config()
     db_path = get_db_path(config)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = get_connection(db_path)
+    init_db(conn)
     existing = set(
         row[0] for row in conn.execute("SELECT session_id FROM sessions").fetchall()
     )
@@ -32,10 +34,6 @@ def main():
             continue
 
         dirname = proj_dir.name
-
-        # PM_Vault は既に取込済み（スキップ）
-        if dirname.casefold() == "c--pm-vault":
-            continue
 
         # 実パスを解決
         real_path = resolve_real_path(dirname)

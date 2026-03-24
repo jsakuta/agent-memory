@@ -2,6 +2,7 @@
 data/memory.db
 data/inject_cache/
 data/path_cache.json
+data/backfill_complete
 logs/
 
 # User-local settings (personal path mappings)

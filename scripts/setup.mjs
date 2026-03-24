@@ -104,69 +104,22 @@ function main() {
     copyFileSync(srcManifest, dstManifest);
   }
 
-  // Ensure ONNX model exists in PLUGIN_DATA
-  const modelDst = join(PLUGIN_DATA, "models", "ruri-v3-130m");
-  if (!existsSync(join(modelDst, "model_int8.onnx")) ||
-      !existsSync(join(modelDst, "tokenizer.json"))) {
-    // Try copy from PLUGIN_ROOT first (local dev)
-    const modelSrc = join(PLUGIN_ROOT, "models", "ruri-v3-130m");
-    const requiredFiles = ["model_int8.onnx", "tokenizer.json"];
-    if (existsSync(join(modelSrc, "model_int8.onnx"))) {
-      mkdirSync(modelDst, { recursive: true });
-      for (const f of requiredFiles) {
-        const s = join(modelSrc, f);
-        if (existsSync(s)) copyFileSync(s, join(modelDst, f));
-      }
-      process.stderr.write("agent-memory: ONNX model copied from plugin root\n");
-    }
-    // Verify all required files exist; download any missing ones
-    const missing = requiredFiles.filter(f => !existsSync(join(modelDst, f)));
-    if (missing.length > 0) {
-      downloadModel(modelDst);
-    }
-  }
-
-  // Fire-and-forget backfill safety net
+  // Fire-and-forget: model download + session import + vec embeddings
+  // Model download moved here from sync path to avoid hook timeout (120s)
+  // killing the process mid-download. FTS5 search works without the model.
   const venvPyFinal = platform() === "win32"
     ? join(PLUGIN_DATA, ".venv", "Scripts", "python.exe")
     : join(PLUGIN_DATA, ".venv", "bin", "python");
   if (existsSync(venvPyFinal)) {
     const env = { ...process.env };
     if (process.env.CLAUDE_PLUGIN_DATA) env.CLAUDE_PLUGIN_DATA = process.env.CLAUDE_PLUGIN_DATA;
-    const child = spawn(venvPyFinal, [join(__dirname, "backfill_vec.py")], {
+    const child = spawn(venvPyFinal, [join(__dirname, "backfill_all.py")], {
       detached: true,
       stdio: "ignore",
       env,
     });
     child.unref();
   }
-}
-
-function downloadModel(modelDir) {
-  const files = [
-    {
-      url: "https://huggingface.co/sirasagi62/ruri-v3-130m-ONNX/resolve/main/onnx/model_int8.onnx",
-      name: "model_int8.onnx",
-    },
-    {
-      url: "https://huggingface.co/cl-nagoya/ruri-v3-130m/resolve/main/tokenizer.json",
-      name: "tokenizer.json",
-    },
-  ];
-  mkdirSync(modelDir, { recursive: true });
-  process.stderr.write("agent-memory: downloading ruri-v3-130m (~140MB)...\n");
-  for (const { url, name } of files) {
-    try {
-      execFileSync("curl", ["-fSL", "--retry", "3", "-o", join(modelDir, name), url], {
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 300000, // 5 min
-      });
-    } catch (e) {
-      process.stderr.write(`agent-memory: ERROR downloading ${name}: ${e.message}\n`);
-      return;
-    }
-  }
-  process.stderr.write("agent-memory: model download complete\n");
 }
 
 function findPython() {
