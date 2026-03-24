@@ -57,7 +57,7 @@ node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "project:<ID> <
 
 ## 検索方式（参考）
 
-- **FTS5**: fugashi 分かち書き + BM25（3段階フォールバック: OR → prefix → LIKE）
+- **FTS5**: trigram tokenizer + BM25（フレーズ → OR → LIKE フォールバック）
 - **Vec**: ruri-v3-130m cosine KNN
 - **RRF(k=60)** でマージ → **2因子リランキング**（relevance 0.7 × recency 0.3）
 

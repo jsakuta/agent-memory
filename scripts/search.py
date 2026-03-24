@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _common import compute_recency, get_data_root, get_db_path, get_logger, load_config
 from _db import get_connection
-from _tokenizer import tokenize_query
 
 # Optional embedder
 try:
@@ -57,10 +56,7 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
     boost_factor = config.get("access_boost_factor", 0.3)
     k = 60  # RRF constant
 
-    # Tokenize query for FTS5
-    tokens = tokenize_query(query)
-
-    # --- FTS5 search (3-stage fallback) ---
+    # --- FTS5 trigram search (3-stage fallback) ---
     fts_results = {}  # rowid -> rank (1-indexed)
 
     # Project filter subquery
@@ -74,30 +70,12 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
         project_filter = ""
         project_params = []
 
-    # Stage 0: AND search (all terms must match) — skip for single token
-    if len(tokens) > 1:
-        and_query = " AND ".join(f'"{t}"' for t in tokens)
-        try:
-            rows = conn.execute(
-                f"""
-                SELECT chunks_fts.rowid, rank
-                FROM chunks_fts
-                JOIN chunks c ON c.id = chunks_fts.rowid
-                WHERE chunks_fts MATCH ?
-                {project_filter}
-                ORDER BY rank
-                LIMIT ?
-            """,
-                [and_query] + project_params + [fts_limit],
-            ).fetchall()
-            for rank_idx, (rowid, _score) in enumerate(rows, 1):
-                fts_results[rowid] = rank_idx
-        except Exception as e:
-            logger.warning(f"FTS Stage 0 (AND) error: {e}")
+    # Split query into words for multi-term search
+    words = [w for w in query.split() if len(w) >= 3]
 
-    # Stage 1: OR search (fallback if AND returned < 5 results)
-    if len(fts_results) < 5 and tokens:
-        fts_query = " OR ".join(tokens)
+    # Stage 0: Phrase match (全体を部分文字列として検索)
+    if len(query) >= 3:
+        fts_query = f'"{query}"'
         try:
             rows = conn.execute(
                 f"""
@@ -114,11 +92,11 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
             for rank_idx, (rowid, _score) in enumerate(rows, 1):
                 fts_results[rowid] = rank_idx
         except Exception as e:
-            logger.warning(f"FTS Stage 1 error: {e}")
+            logger.warning(f"FTS Stage 0 (phrase) error: {e}")
 
-    # Stage 2: prefix search (if Stage 1 empty)
-    if not fts_results and tokens:
-        fts_query = " OR ".join(f"{t}*" for t in tokens)
+    # Stage 1: OR search (各単語を個別にtrigram検索、フレーズで不足なら)
+    if len(fts_results) < 5 and words:
+        or_query = " OR ".join(f'"{w}"' for w in words)
         try:
             rows = conn.execute(
                 f"""
@@ -130,14 +108,15 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
                 ORDER BY rank
                 LIMIT ?
             """,
-                [fts_query] + project_params + [fts_limit],
+                [or_query] + project_params + [fts_limit],
             ).fetchall()
             for rank_idx, (rowid, _score) in enumerate(rows, 1):
-                fts_results[rowid] = rank_idx
+                if rowid not in fts_results:
+                    fts_results[rowid] = rank_idx
         except Exception as e:
-            logger.warning(f"FTS Stage 2 error: {e}")
+            logger.warning(f"FTS Stage 1 (OR) error: {e}")
 
-    # Stage 3: LIKE fallback (original query, no tokenization)
+    # Stage 2: LIKE fallback (短いクエリ or trigram MATCHで結果なし)
     if not fts_results:
         try:
             like_pattern = f"%{query}%"
@@ -154,7 +133,7 @@ def search(raw_query: str, config: dict | None = None) -> list[dict]:
             for rank_idx, (rowid,) in enumerate(rows, 1):
                 fts_results[rowid] = rank_idx
         except Exception as e:
-            logger.warning(f"FTS Stage 3 error: {e}")
+            logger.warning(f"FTS Stage 2 (LIKE) error: {e}")
 
     # --- Vec search ---
     vec_results = {}  # rowid -> rank (1-indexed)

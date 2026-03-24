@@ -16,8 +16,9 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
 
 
 def init_db(conn: sqlite3.Connection):
-    """§4 のスキーマを全て CREATE IF NOT EXISTS で実行。
-    BM25 column weight 設定も含む。"""
+    """スキーマ初期化 + マイグレーション。
+    v1: 初期スキーマ (fugashi分かち書き)
+    v2: FTS5 trigram tokenizer 移行"""
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS schema_version (
             version INTEGER PRIMARY KEY,
@@ -55,14 +56,6 @@ def init_db(conn: sqlite3.Connection):
             FOREIGN KEY (session_id) REFERENCES sessions(session_id)
         );
 
-        CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-            user_tokenized,
-            assistant_tokenized,
-            content='',
-            content_rowid='id',
-            contentless_delete=1
-        );
-
         CREATE TABLE IF NOT EXISTS processing_state (
             session_id TEXT PRIMARY KEY,
             last_processed_offset INTEGER DEFAULT 0,
@@ -83,9 +76,42 @@ def init_db(conn: sqlite3.Connection):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_timestamp ON chunks(timestamp)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project)")
 
+    # --- Migration: v1 → v2 (fugashi → trigram) ---
+    current_version = conn.execute(
+        "SELECT MAX(version) FROM schema_version"
+    ).fetchone()[0] or 1
+
+    if current_version < 2:
+        _migrate_v2_trigram(conn)
+
     # BM25 column weight (idempotent - can be called multiple times)
     conn.execute(
         "INSERT INTO chunks_fts(chunks_fts, rank) VALUES('rank', 'bm25(3.0, 1.0)')"
     )
 
+    conn.commit()
+
+
+def _migrate_v2_trigram(conn: sqlite3.Connection):
+    """v1→v2: FTS5を分かち書きからtrigramに移行。
+    既存のchunks_ftsをDROPし、trigram tokenizerで再作成、
+    chunksテーブルの生テキストで再投入する。"""
+    conn.execute("DROP TABLE IF EXISTS chunks_fts")
+    conn.execute("""
+        CREATE VIRTUAL TABLE chunks_fts USING fts5(
+            user_tokenized,
+            assistant_tokenized,
+            content='',
+            content_rowid='id',
+            contentless_delete=1,
+            tokenize='trigram'
+        )
+    """)
+    # 既存チャンクの生テキストを再投入
+    conn.execute("""
+        INSERT INTO chunks_fts(rowid, user_tokenized, assistant_tokenized)
+        SELECT id, COALESCE(user_text, ''), COALESCE(assistant_text, '')
+        FROM chunks
+    """)
+    conn.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (2)")
     conn.commit()

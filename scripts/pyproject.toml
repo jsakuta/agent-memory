@@ -3,7 +3,6 @@ name = "session-memory-scripts"
 version = "1.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "fugashi[unidic-lite]",
     "sqlite-vec",
     "onnxruntime",
     "tokenizers",

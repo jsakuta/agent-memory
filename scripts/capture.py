@@ -14,7 +14,6 @@ from _common import read_hook_input, load_config, get_db_path, resolve_project, 
 from _health import read_health_status
 from _db import get_connection, init_db
 from _parser import parse_jsonl
-from _tokenizer import tokenize
 
 def process_session(jsonl_path: str, session_id: str, cwd: str,
                     config: dict | None = None, time_limit: float | None = None):
@@ -102,9 +101,9 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
             chunk_index = existing_count + i
             char_count = len(user_text) + len(assistant_text)
 
-            # Tokenize for FTS5
-            user_tokenized = tokenize(user_text) if user_text else ""
-            assistant_tokenized = tokenize(assistant_text) if assistant_text else ""
+            # FTS5 trigram: 生テキストを投入（DB側でtrigramトークナイズ）
+            user_tokenized = user_text
+            assistant_tokenized = assistant_text
 
             # Insert into chunks
             cursor = conn.execute("""

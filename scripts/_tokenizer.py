@@ -1,4 +1,7 @@
-import fugashi
+"""FTS5 trigram モード用テキスト前処理。
+trigram tokenize はSQLite FTS5が内部で行うため、
+外部トークナイズは不要。クエリ用ストップワード除去のみ提供。"""
+
 
 STOPWORDS = frozenset([
     "の", "に", "は", "を", "た", "が", "で", "て", "と", "し",
@@ -8,19 +11,12 @@ STOPWORDS = frozenset([
     "まで", "られ", "なる", "へ", "か", "だ", "これ", "です", "ます",
 ])
 
-_tagger = None
 
-def get_tagger() -> fugashi.Tagger:
-    global _tagger
-    if _tagger is None:
-        _tagger = fugashi.Tagger('-Owakati')
-    return _tagger
+def prepare_text(text: str) -> str:
+    """FTS5 インデックス用: テキストをそのまま返す（trigramはDB側で処理）"""
+    return text.strip()
 
-def tokenize(text: str) -> str:
-    """FTS5 インデックス用: 分かち書きのみ（ストップワード除去なし）"""
-    return get_tagger().parse(text).strip()
 
-def tokenize_query(text: str) -> list[str]:
-    """FTS5 検索クエリ用: 分かち書き + ストップワード除去"""
-    tokens = get_tagger().parse(text).strip().split()
-    return [t for t in tokens if t not in STOPWORDS and len(t) > 0]
+def prepare_query(text: str) -> str:
+    """FTS5 検索クエリ用: trigramモードでは生テキストでMATCH"""
+    return text.strip()

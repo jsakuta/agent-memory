@@ -14,7 +14,6 @@ def health_check() -> bool:
     失敗時は health.json に連続失敗カウンタを記録。"""
     ok = True
     try:
-        import fugashi
         import sqlite_vec
         import onnxruntime
     except ImportError:
@@ -48,7 +47,7 @@ if __name__ == "__main__":
     print(f"Health: {'OK' if failures < 3 else 'DEGRADED'} (failures={failures})")
 
     # 2. Dependencies
-    for mod in ["fugashi", "sqlite_vec", "onnxruntime", "tokenizers"]:
+    for mod in ["sqlite_vec", "onnxruntime", "tokenizers"]:
         try:
             __import__(mod)
             print(f"{mod}: OK")
