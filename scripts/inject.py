@@ -58,7 +58,7 @@ def main():
         if health.get("consecutive_failures", 0) >= 3:
             health_warning = (
                 "\n⚠️ session-memory: 依存パッケージの読み込みに連続失敗中。"
-                "`/memory-health` で診断してください。"
+                "mem-search スキルのトラブルシュート節を参照してください。"
             )
 
         # ── Cleanup stale cache files (>24h) ──
@@ -126,6 +126,15 @@ def main():
                    ORDER BY last_updated DESC
                    LIMIT ?""",
                 (project, recency_count),
+            ).fetchall()
+        elif cwd:
+            # project未解決でもcwdがあれば先頭一致でフィルタ
+            recent_sessions = conn.execute(
+                """SELECT session_id, last_updated FROM sessions
+                   WHERE cwd LIKE ? || '%'
+                   ORDER BY last_updated DESC
+                   LIMIT ?""",
+                (cwd, recency_count),
             ).fetchall()
         else:
             recent_sessions = conn.execute(

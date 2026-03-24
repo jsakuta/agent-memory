@@ -1,6 +1,6 @@
 // setup.mjs — First-run venv bootstrap for agent-memory
 import { execFileSync, spawn } from "child_process";
-import { existsSync, copyFileSync, readFileSync, mkdirSync } from "fs";
+import { existsSync, copyFileSync, readFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { platform } from "os";
 import { fileURLToPath } from "url";
@@ -62,7 +62,7 @@ function main() {
         "agent-memory: ERROR - Python 3 not found. Install Python 3.12+.\n"
       );
       // Remove copied manifest so next session retries
-      try { require("fs").unlinkSync(dstManifest); } catch {}
+      try { unlinkSync(dstManifest); } catch {}
       return;
     }
     const venvDir = join(PLUGIN_DATA, ".venv");

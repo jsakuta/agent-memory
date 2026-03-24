@@ -1,4 +1,4 @@
-db_path = "memory.db"
+db_path = "data/memory.db"
 token_budget = 2000
 recency_count = 3
 fts_candidate_limit = 100
