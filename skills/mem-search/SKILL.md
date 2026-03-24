@@ -58,7 +58,7 @@ node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "project:<ID> <
 ## 検索方式（参考）
 
 - **FTS5**: fugashi 分かち書き + BM25（3段階フォールバック: OR → prefix → LIKE）
-- **Vec**: ruri-v3-30m cosine KNN
+- **Vec**: ruri-v3-130m cosine KNN
 - **RRF(k=60)** でマージ → **2因子リランキング**（relevance 0.7 × recency 0.3）
 
 ## Auto Memoryとの使い分け
@@ -70,5 +70,5 @@ Auto Memoryで見つからない、または「正確な発言内容」「議論
 
 ## トラブルシュート
 
-検索が動かない場合: `cd ~/.claude/plugins/local/agent-memory/scripts && .venv/*/python _health.py` で診断する。
+検索が動かない場合: `node -e "import('./_run.mjs').then(m=>m.runPython('_health.py'))"` を `~/.claude/plugins/local/agent-memory/scripts/` で実行して診断する。
 venvが壊れている場合は `.venv` を削除してセッション再起動（setup.mjs が自動再構築する）。
