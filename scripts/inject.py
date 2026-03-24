@@ -1,5 +1,5 @@
 """SessionStart hook: recency注入。
-CRITICAL: fugashi, onnxruntime, _embedder, _tokenizer は import しない。
+CRITICAL: onnxruntime, _embedder は import しない。
 timeout 3s 制約のため最小 import で動作する。
 """
 import json

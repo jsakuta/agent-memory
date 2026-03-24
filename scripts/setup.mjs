@@ -78,7 +78,6 @@ function main() {
     // pip install from pyproject.toml is not direct; use requirements
     // For now, install the known deps directly
     const deps = [
-      "fugashi[unidic-lite]",
       "sqlite-vec",
       "onnxruntime",
       "tokenizers",
