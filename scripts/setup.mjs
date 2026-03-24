@@ -13,7 +13,7 @@ const PLUGIN_DATA = process.env.CLAUDE_PLUGIN_DATA || PLUGIN_ROOT;
 
 function main() {
   // Ensure PLUGIN_DATA directories exist
-  for (const d of ["logs", "inject_cache"]) {
+  for (const d of ["data", "logs", "inject_cache"]) {
     mkdirSync(join(PLUGIN_DATA, d), { recursive: true });
   }
 

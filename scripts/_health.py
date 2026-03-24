@@ -36,3 +36,43 @@ def read_health_status() -> dict:
     if hp.exists():
         return json.loads(hp.read_text())
     return {"consecutive_failures": 0}
+
+
+if __name__ == "__main__":
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+    # 1. Health status
+    status = read_health_status()
+    failures = status.get("consecutive_failures", 0)
+    print(f"Health: {'OK' if failures < 3 else 'DEGRADED'} (failures={failures})")
+
+    # 2. Dependencies
+    for mod in ["fugashi", "sqlite_vec", "onnxruntime", "tokenizers"]:
+        try:
+            __import__(mod)
+            print(f"{mod}: OK")
+        except Exception as e:
+            print(f"{mod}: FAIL ({e})")
+
+    # 3. DB integrity
+    from _common import get_db_path, load_config
+    from _db import get_connection
+    config = load_config()
+    db_path = get_db_path(config)
+    if not db_path.exists():
+        print(f"DB not found: {db_path}")
+        sys.exit(1)
+    conn = get_connection(db_path)
+    s = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    c = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+    f = conn.execute("SELECT COUNT(*) FROM chunks_fts").fetchone()[0]
+    v = conn.execute("SELECT COUNT(*) FROM vec_chunks").fetchone()[0]
+    print(f"Sessions: {s}, Chunks: {c}, FTS: {f}, Vec: {v}")
+    if c != f:
+        print("WARNING: FTS5 mismatch - REBUILD needed")
+    if c != v:
+        print(f"INFO: Vec backfill pending ({c - v} chunks)")
+    if c == f:
+        print("Integrity: OK")
+    conn.close()
