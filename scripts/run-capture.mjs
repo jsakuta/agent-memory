@@ -24,6 +24,7 @@ process.stdin.on("end", () => {
     const child = spawn(py, [join(__dirname, "backfill_vec.py")], {
       detached: true,
       stdio: "ignore",
+      windowsHide: true,
       env,
     });
     child.unref();

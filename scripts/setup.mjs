@@ -116,6 +116,7 @@ function main() {
     const child = spawn(venvPyFinal, [join(__dirname, "backfill_all.py")], {
       detached: true,
       stdio: "ignore",
+      windowsHide: true,
       env,
     });
     child.unref();
