@@ -28,13 +28,13 @@ def load_config() -> dict:
         config = tomllib.load(f)
     # 2. ユーザー設定（上書きマージ）
     #    PLUGIN_DATA が設定済み → PLUGIN_DATA/settings.toml
-    #    未設定（ローカル開発）→ PLUGIN_ROOT/config/settings.toml （旧互換）
+    #    未設定（ローカル開発）→ PLUGIN_ROOT/config/settings.toml
     plugin_data = os.environ.get("CLAUDE_PLUGIN_DATA")
     if plugin_data:
         user_path = Path(plugin_data) / "settings.toml"
     else:
         user_path = get_plugin_root() / "config" / "settings.toml"
-    if user_path.exists() and user_path != default_path:
+    if user_path.exists() and user_path.resolve() != default_path.resolve():
         with open(user_path, "rb") as f:
             user_config = tomllib.load(f)
         config.update(user_config)
