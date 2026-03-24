@@ -13,14 +13,14 @@ import json
 import re
 from pathlib import Path
 
-from _common import get_plugin_root
+from _common import get_data_root
 
 _PROJECTS_RE = re.compile(r"[/\\]\.claude[/\\]projects[/\\]([^/\\]+)", re.IGNORECASE)
 
 
 def get_cache_path() -> Path:
     """キャッシュファイルのパスを返す。"""
-    return get_plugin_root() / "data" / "path_cache.json"
+    return get_data_root() / "data" / "path_cache.json"
 
 
 def load_cache() -> dict[str, str]:

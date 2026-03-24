@@ -27,6 +27,11 @@ export function getVenvPython() {
     ? join(__dirname, ".venv", "Scripts", "python.exe")
     : join(__dirname, ".venv", "bin", "python");
   if (existsSync(localPy)) return localPy;
+  // 3. Plugin root venv (setup.mjs defaults PLUGIN_DATA to PLUGIN_ROOT)
+  const rootPy = platform() === "win32"
+    ? join(PLUGIN_ROOT, ".venv", "Scripts", "python.exe")
+    : join(PLUGIN_ROOT, ".venv", "bin", "python");
+  if (existsSync(rootPy)) return rootPy;
   return null;
 }
 
