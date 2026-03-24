@@ -90,16 +90,22 @@ function main() {
     process.stderr.write("agent-memory: venv created via pip\n");
   }
 
-  // Copy ONNX model to PLUGIN_DATA if not present
-  const modelSrc = join(PLUGIN_ROOT, "models", "ruri-v3-130m");
+  // Ensure ONNX model exists in PLUGIN_DATA
   const modelDst = join(PLUGIN_DATA, "models", "ruri-v3-130m");
-  if (existsSync(modelSrc) && !existsSync(join(modelDst, "model_int8.onnx"))) {
-    mkdirSync(modelDst, { recursive: true });
-    for (const f of ["model_int8.onnx", "model.onnx", "tokenizer.json"]) {
-      const s = join(modelSrc, f);
-      if (existsSync(s)) copyFileSync(s, join(modelDst, f));
+  if (!existsSync(join(modelDst, "model_int8.onnx"))) {
+    // Try copy from PLUGIN_ROOT first (local dev)
+    const modelSrc = join(PLUGIN_ROOT, "models", "ruri-v3-130m");
+    if (existsSync(join(modelSrc, "model_int8.onnx"))) {
+      mkdirSync(modelDst, { recursive: true });
+      for (const f of ["model_int8.onnx", "tokenizer.json"]) {
+        const s = join(modelSrc, f);
+        if (existsSync(s)) copyFileSync(s, join(modelDst, f));
+      }
+      process.stderr.write("agent-memory: ONNX model copied from plugin root\n");
+    } else {
+      // Download from HuggingFace
+      downloadModel(modelDst);
     }
-    process.stderr.write("agent-memory: ONNX model (ruri-v3-130m) copied to data dir\n");
   }
 
   // Fire-and-forget backfill safety net
@@ -116,6 +122,33 @@ function main() {
     });
     child.unref();
   }
+}
+
+function downloadModel(modelDir) {
+  const files = [
+    {
+      url: "https://huggingface.co/sirasagi62/ruri-v3-130m-ONNX/resolve/main/onnx/model_int8.onnx",
+      name: "model_int8.onnx",
+    },
+    {
+      url: "https://huggingface.co/cl-nagoya/ruri-v3-130m/resolve/main/tokenizer.json",
+      name: "tokenizer.json",
+    },
+  ];
+  mkdirSync(modelDir, { recursive: true });
+  process.stderr.write("agent-memory: downloading ruri-v3-130m (~140MB)...\n");
+  for (const { url, name } of files) {
+    try {
+      execFileSync("curl", ["-fSL", "--retry", "3", "-o", join(modelDir, name), url], {
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 300000, // 5 min
+      });
+    } catch (e) {
+      process.stderr.write(`agent-memory: ERROR downloading ${name}: ${e.message}\n`);
+      return;
+    }
+  }
+  process.stderr.write("agent-memory: model download complete\n");
 }
 
 function findPython() {
