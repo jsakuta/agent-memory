@@ -4,6 +4,9 @@ data/inject_cache/
 data/path_cache.json
 logs/
 
+# User-local settings (personal path mappings)
+config/settings.toml
+
 # Python
 scripts/.venv/
 scripts/__pycache__/
@@ -14,9 +17,8 @@ __pycache__/
 !data/.gitkeep
 !logs/.gitkeep
 
-# ONNX models (too large for git, copied by setup.mjs)
-models/*/model*.onnx
-models/*/tokenizer.json
+# ONNX models (too large for git, downloaded/copied by setup.mjs)
+models/
 
 # Node
 node_modules/
