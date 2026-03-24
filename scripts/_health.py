@@ -9,7 +9,7 @@ def _health_json_path() -> Path:
     return log_dir / "health.json"
 
 def health_check() -> bool:
-    """fugashi/sqlite3/onnxruntime の import 検証（重量級）。
+    """sqlite_vec/onnxruntime の import 検証（重量級）。
     capture.py / search.py で使用。inject.py では使わない。
     失敗時は health.json に連続失敗カウンタを記録。"""
     ok = True
@@ -30,7 +30,7 @@ def health_check() -> bool:
 
 def read_health_status() -> dict:
     """health.json の読み取りのみ（軽量）。inject.py で使用。
-    onnxruntime/fugashi を import しないため <50ms で完了。"""
+    onnxruntime を import しないため <50ms で完了。"""
     hp = _health_json_path()
     if hp.exists():
         return json.loads(hp.read_text())
