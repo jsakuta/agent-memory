@@ -85,6 +85,7 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Process exchanges in single transaction
+    committed_count = 0
     try:
         for i, ex in enumerate(exchanges):
             # Time guard
@@ -98,7 +99,7 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
             if not user_text and not assistant_text:
                 continue
 
-            chunk_index = existing_count + i
+            chunk_index = existing_count + committed_count
             char_count = len(user_text) + len(assistant_text)
 
             # FTS5 trigram: 生テキストを投入（DB側でtrigramトークナイズ）
@@ -123,6 +124,7 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
                 1 if ex.is_compact_summary else 0,
             ))
             rowid = cursor.lastrowid
+            committed_count += 1
 
             # Insert into FTS5 (contentless — needs explicit rowid)
             conn.execute(
@@ -131,7 +133,7 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
                 (rowid, user_tokenized, assistant_tokenized)
             )
 
-        # UPSERT session
+        # UPSERT session (use committed_count, not len(exchanges))
         timestamp_first = exchanges[0].timestamp if exchanges else now_iso
         conn.execute("""
             INSERT INTO sessions (session_id, project, started_at, last_updated,
@@ -143,7 +145,7 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
         """, (
             session_id, project or "",
             timestamp_first, now_iso,
-            len(exchanges), cwd or "",
+            committed_count, cwd or "",
         ))
 
         # Update processing state

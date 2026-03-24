@@ -23,7 +23,8 @@ LOCK_STALE_SECONDS = 1800  # 30 minutes
 
 
 def _acquire_lock() -> bool:
-    """PID + mtime based lock. Returns True if lock acquired."""
+    """PID + mtime based lock. Returns True if lock acquired.
+    Uses O_EXCL (exclusive create) to avoid TOCTOU race."""
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     if LOCK_FILE.exists():
         try:
@@ -40,8 +41,19 @@ def _acquire_lock() -> bool:
                 pass  # Process dead — stale lock
         except (ValueError, IOError):
             pass  # Corrupt lock file — treat as stale
-    LOCK_FILE.write_text(str(os.getpid()))
-    return True
+        # Remove stale lock before attempting exclusive create
+        try:
+            LOCK_FILE.unlink()
+        except OSError:
+            pass
+    # Atomic lock acquisition via O_EXCL
+    try:
+        fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except FileExistsError:
+        return False  # Another process won the race
 
 
 def _release_lock():

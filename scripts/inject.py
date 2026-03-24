@@ -129,13 +129,14 @@ def main():
             ).fetchall()
         elif cwd:
             # project未解決でもcwdがあれば先頭一致でフィルタ
-            # Note: cwd is from Claude SDK hook input (trusted), LIKE wildcards (%_) in paths are rare
+            # Escape LIKE wildcards in cwd to prevent false matches (e.g. _ in dir names)
+            cwd_escaped = cwd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             recent_sessions = conn.execute(
                 """SELECT session_id, last_updated FROM sessions
-                   WHERE cwd LIKE ? || '%'
+                   WHERE cwd LIKE ? || '%' ESCAPE '\\'
                    ORDER BY last_updated DESC
                    LIMIT ?""",
-                (cwd, recency_count),
+                (cwd_escaped, recency_count),
             ).fetchall()
         else:
             recent_sessions = conn.execute(

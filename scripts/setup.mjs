@@ -106,18 +106,22 @@ function main() {
 
   // Ensure ONNX model exists in PLUGIN_DATA
   const modelDst = join(PLUGIN_DATA, "models", "ruri-v3-130m");
-  if (!existsSync(join(modelDst, "model_int8.onnx"))) {
+  if (!existsSync(join(modelDst, "model_int8.onnx")) ||
+      !existsSync(join(modelDst, "tokenizer.json"))) {
     // Try copy from PLUGIN_ROOT first (local dev)
     const modelSrc = join(PLUGIN_ROOT, "models", "ruri-v3-130m");
+    const requiredFiles = ["model_int8.onnx", "tokenizer.json"];
     if (existsSync(join(modelSrc, "model_int8.onnx"))) {
       mkdirSync(modelDst, { recursive: true });
-      for (const f of ["model_int8.onnx", "tokenizer.json"]) {
+      for (const f of requiredFiles) {
         const s = join(modelSrc, f);
         if (existsSync(s)) copyFileSync(s, join(modelDst, f));
       }
       process.stderr.write("agent-memory: ONNX model copied from plugin root\n");
-    } else {
-      // Download from HuggingFace
+    }
+    // Verify all required files exist; download any missing ones
+    const missing = requiredFiles.filter(f => !existsSync(join(modelDst, f)));
+    if (missing.length > 0) {
       downloadModel(modelDst);
     }
   }

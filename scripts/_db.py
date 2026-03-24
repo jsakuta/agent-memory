@@ -84,11 +84,6 @@ def init_db(conn: sqlite3.Connection):
     if current_version < 2:
         _migrate_v2_trigram(conn)
 
-    # BM25 column weight (idempotent - can be called multiple times)
-    conn.execute(
-        "INSERT INTO chunks_fts(chunks_fts, rank) VALUES('rank', 'bm25(3.0, 1.0)')"
-    )
-
     conn.commit()
 
 
@@ -97,21 +92,28 @@ def _migrate_v2_trigram(conn: sqlite3.Connection):
     既存のchunks_ftsをDROPし、trigram tokenizerで再作成、
     chunksテーブルの生テキストで再投入する。"""
     conn.execute("DROP TABLE IF EXISTS chunks_fts")
-    conn.execute("""
-        CREATE VIRTUAL TABLE chunks_fts USING fts5(
-            user_tokenized,
-            assistant_tokenized,
-            content='',
-            content_rowid='id',
-            contentless_delete=1,
-            tokenize='trigram'
-        )
-    """)
+    try:
+        conn.execute("""
+            CREATE VIRTUAL TABLE chunks_fts USING fts5(
+                user_tokenized,
+                assistant_tokenized,
+                content='',
+                content_rowid='id',
+                contentless_delete=1,
+                tokenize='trigram'
+            )
+        """)
+    except sqlite3.OperationalError:
+        pass  # Already exists (retry after partial migration)
     # 既存チャンクの生テキストを再投入
     conn.execute("""
         INSERT INTO chunks_fts(rowid, user_tokenized, assistant_tokenized)
         SELECT id, COALESCE(user_text, ''), COALESCE(assistant_text, '')
         FROM chunks
     """)
+    # BM25 column weight (set once during migration, not on every init)
+    conn.execute(
+        "INSERT INTO chunks_fts(chunks_fts, rank) VALUES('rank', 'bm25(3.0, 1.0)')"
+    )
     conn.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (2)")
     conn.commit()
