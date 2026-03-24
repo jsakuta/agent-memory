@@ -44,25 +44,27 @@ function main() {
 
   if (!needsBuild) return; // Already up to date
 
-  // Copy pyproject.toml + uv.lock to PLUGIN_DATA
-  copyFileSync(srcManifest, dstManifest);
+  // Copy uv.lock early (needed by uv sync), but defer pyproject.toml
+  // copy until after successful install so failures trigger retry.
   if (existsSync(srcLock)) copyFileSync(srcLock, dstLock);
 
   // Try uv sync first, fall back to python -m venv + pip
   try {
+    // uv sync needs pyproject.toml in place
+    copyFileSync(srcManifest, dstManifest);
     execFileSync("uv", ["sync", "--project", PLUGIN_DATA], {
       stdio: "pipe",
       timeout: 180000,
     });
     process.stderr.write("agent-memory: venv created via uv sync\n");
   } catch {
+    // Remove manifest so pip path failure also triggers retry
+    try { unlinkSync(dstManifest); } catch {}
     const py = findPython();
     if (!py) {
       process.stderr.write(
         "agent-memory: ERROR - Python 3 not found. Install Python 3.12+.\n"
       );
-      // Remove copied manifest so next session retries
-      try { unlinkSync(dstManifest); } catch {}
       return;
     }
     const venvDir = join(PLUGIN_DATA, ".venv");
@@ -75,8 +77,19 @@ function main() {
     const pipPy = platform() === "win32"
       ? join(venvDir, "Scripts", "python.exe")
       : join(venvDir, "bin", "python");
-    // pip install from pyproject.toml is not direct; use requirements
-    // For now, install the known deps directly
+    // Ensure pip is available (Homebrew Python may create venv without pip)
+    try {
+      execFileSync(pipPy, ["-m", "pip", "--version"], {
+        stdio: "pipe",
+        timeout: 5000,
+      });
+    } catch {
+      execFileSync(pipPy, ["-m", "ensurepip", "--default-pip"], {
+        stdio: "pipe",
+        timeout: 30000,
+      });
+    }
+    // Install the known deps directly
     const deps = [
       "sqlite-vec",
       "onnxruntime",
@@ -87,6 +100,8 @@ function main() {
       timeout: 180000,
     });
     process.stderr.write("agent-memory: venv created via pip\n");
+    // Mark build complete only after successful install
+    copyFileSync(srcManifest, dstManifest);
   }
 
   // Ensure ONNX model exists in PLUGIN_DATA
