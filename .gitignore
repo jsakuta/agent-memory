@@ -14,5 +14,9 @@ __pycache__/
 !data/.gitkeep
 !logs/.gitkeep
 
+# ONNX models (too large for git, copied by setup.mjs)
+models/*/model*.onnx
+models/*/tokenizer.json
+
 # Node
 node_modules/
