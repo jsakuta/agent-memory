@@ -37,14 +37,8 @@ node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "project:<ID> <
 
 **ユーザーが明示的に指定した場合のみ使用する。文脈から推測して勝手に付与しない。**
 
-有効なID一覧（リポジトリルート単位）:
-- `vault-root` — PM_Vault
-- `rag` — CBK RAGリポジトリ
-- `bot-analyzer` — bot-analyzer
-- `pptx-generator` — pptx-generator
-- `dotfiles-claude` — dotfiles/.claude
-
-存在しないIDを指定するとサイレントに0件が返る。上記以外のIDは使わないこと。
+有効なIDは `config/settings.toml` の `[projects]` セクションで定義されている。
+存在しないIDを指定するとサイレントに0件が返る。定義済みID以外は使わないこと。
 
 ## 検索戦略
 

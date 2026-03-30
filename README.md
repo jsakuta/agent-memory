@@ -1,35 +1,65 @@
 # agent-memory
 
-Claude Code用プラグイン。セッションをまたいだ会話の記憶を自動で保存・検索する。
+**English** | [日本語](README.ja.md)
 
-セッション終了時にトランスクリプトをSQLiteに自動保存し、FTS5（全文検索）とベクトル検索（ruri-v3-130m）のハイブリッドで過去の会話を検索できる。日本語に最適化。
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform: Windows | macOS](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey.svg)]()
+[![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet.svg)]()
 
-## できること
+Claude Code plugin that automatically saves and searches conversations across sessions.
 
-- **自動保存** — セッション終了時にトランスクリプトをDBに自動取り込み
-- **過去の会話を検索** — 「前に何を決めた？」「あのとき話した内容」をスキルで検索
-- **セッション開始時のコンテキスト注入** — 直近セッションの要点を自動でセッションに注入
-- **日本語対応** — FTS5 trigramトークナイザ + ruri-v3日本語埋め込みモデル
-- **クロスプラットフォーム** — Windows（Git Bash）/ macOS対応
+Transcripts are stored in SQLite on session end, and searchable via a hybrid of FTS5 (full-text) and vector search (ruri-v3-130m). Optimized for Japanese.
 
-## 動作要件
+---
 
-- Claude Code >= 1.0.0
-- Python >= 3.12
-- Node.js >= 18
-- uv（推奨）または pip
+## Table of Contents
 
-## インストール
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [How It Works](#how-it-works)
+- [Known Limitations](#known-limitations)
+- [Contributing](#contributing)
+- [License](#license)
 
-### 1. プラグインを配置
+## Features
+
+- **Auto-save** --- Transcripts are captured to DB automatically on session end
+- **Hybrid search** --- FTS5 trigram + vector KNN (ruri-v3-130m), merged via RRF
+- **Context injection** --- Recent session highlights are injected at session start
+- **Japanese-optimized** --- Trigram tokenizer + Japanese embedding model
+- **Cross-platform** --- Windows (Git Bash) and macOS supported
+
+## Quick Start
+
+```bash
+# 1. Place the plugin
+cp -r agent-memory ~/.claude/plugins/local/agent-memory
+
+# 2. Enable in settings.json
+# Add: "enabledPlugins": { "agent-memory@local": true }
+
+# 3. Add Stop hook to settings.json (see Installation below)
+
+# 4. Restart Claude Code --- setup runs automatically
+```
+
+First launch installs dependencies, downloads the embedding model (~130MB), and backfills existing sessions.
+
+## Installation
+
+### 1. Place the plugin
 
 ```bash
 cp -r agent-memory ~/.claude/plugins/local/agent-memory
 ```
 
-### 2. プラグインを有効化
+### 2. Enable the plugin
 
-`~/.claude/settings.json` に追加:
+Add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -39,9 +69,9 @@ cp -r agent-memory ~/.claude/plugins/local/agent-memory
 }
 ```
 
-### 3. Stop hookを設定（必須）
+### 3. Add Stop hook (required)
 
-Claude Codeのバグ（[#29767](https://github.com/anthropics/claude-code/issues/29767)）により、プラグインのStop hookは実行されない。settings.jsonへの手動追加が必要。
+Due to a Claude Code bug ([#29767](https://github.com/anthropics/claude-code/issues/29767)), plugin Stop hooks are not executed. Manual addition to `settings.json` is required.
 
 **Windows:**
 
@@ -63,7 +93,8 @@ Claude Codeのバグ（[#29767](https://github.com/anthropics/claude-code/issues
 }
 ```
 
-> ユーザー名に括弧やUnicode文字が含まれる場合は8.3短縮名を使用する。`cmd /c "dir /x C:\Users"` で確認できる。
+> If your username contains parentheses or Unicode characters, use the 8.3 short name.
+> Check with: `cmd /c "dir /x C:\Users"`
 
 **macOS:**
 
@@ -85,43 +116,38 @@ Claude Codeのバグ（[#29767](https://github.com/anthropics/claude-code/issues
 }
 ```
 
-> SessionStart hookはプラグイン同梱の`hooks.json`で定義済みのため、手動設定は不要。
+> The SessionStart hook is defined in the bundled `hooks.json` --- no manual setup needed.
 
-### 4. セッションを起動
+### 4. Launch a session
 
-初回起動時に自動的にセットアップが実行される:
+On first launch, the following happens automatically:
 
-1. Python仮想環境の作成と依存パッケージのインストール
-2. ruri-v3-130mモデルのダウンロード（約130MB）
-3. 既存セッションの一括取り込み
+1. Python venv creation and dependency installation
+2. ruri-v3-130m model download (~130MB)
+3. Bulk import of existing sessions
 
-## 使い方
+## Usage
 
-### 過去の会話を検索する
+### Search past conversations
 
-Claude Code内で自然言語で検索できる:
-
-```
-> 前にAPIの設計について何を決めた？
-> 前回のセッションで話した内容を思い出して
-```
-
-プロジェクトで絞り込む場合:
+Use natural language inside Claude Code:
 
 ```
-> project:vault-root で引き継ぎについて検索して
+> What did we decide about the API design last time?
+> Recall what we discussed in the previous session
+> project:my-app search for auth flow
 ```
 
-CLIから直接実行することもできる:
+Or run directly from CLI:
 
 ```bash
-node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "検索クエリ"
-node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "project:my-project 認証フロー"
+node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "search query"
+node ~/.claude/plugins/local/agent-memory/scripts/run-search.mjs "project:my-project auth flow"
 ```
 
-### 手動でセッションを取り込む
+### Manual backfill
 
-Stop hookが動いていなかった期間のセッションを取り込む場合:
+Import sessions from periods when the Stop hook was not running:
 
 ```bash
 cd ~/.claude/plugins/local/agent-memory/scripts
@@ -133,73 +159,113 @@ cd ~/.claude/plugins/local/agent-memory/scripts
 .venv/Scripts/python.exe backfill_external.py
 ```
 
-## 設定
+## Configuration
 
-`config/settings.toml` を作成してデフォルト値を上書きできる。
+Create `config/settings.toml` to override defaults. See `config/settings.default.toml` for all options.
 
-### プロジェクトマッピング
+### Project mapping
 
-作業ディレクトリとプロジェクトIDを紐づけると、検索時に `project:ID` でフィルタリングできる:
+Map working directories to project IDs for filtered search:
 
 ```toml
 [projects]
-"C:/PM_Vault" = "vault-root"
-"/Users/you/myproject" = "my-project"
+"/Users/you/repos/my-app" = "my-app"
+"C:/Users/you/repos/another" = "another"
 ```
 
-セッション開始時のcwdが上記パスと最長前方一致で照合され、プロジェクトIDが自動的に割り当てられる。
+The session's cwd is matched by longest prefix against these paths.
 
-### 主な設定項目
+### Settings reference
 
-| 項目 | デフォルト | 説明 |
-|------|-----------|------|
-| `token_budget` | 2000 | セッション開始時に注入する最大推定トークン数 |
-| `recency_count` | 3 | 注入時に考慮する直近セッション数 |
-| `result_limit` | 20 | 検索結果の最大件数 |
-| `half_life_days` | 30.0 | 鮮度スコア減衰の半減期（日） |
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `token_budget` | 2000 | Max estimated tokens injected at session start |
+| `recency_count` | 3 | Number of recent sessions considered for injection |
+| `result_limit` | 20 | Max search results returned |
+| `half_life_days` | 30.0 | Recency score decay half-life (days) |
+| `fts_candidate_limit` | 100 | Candidate pool size for FTS5/Vec search |
+| `inject_cache_ttl_seconds` | 300 | Cache TTL for injection deduplication |
+| `recency_floor` | 0.01 | Minimum recency score |
+| `access_boost_factor` | 0.3 | Weight for hit-count boost in recency |
+| `vec.enabled` | true | Enable vector search |
 
-全設定項目は `config/settings.default.toml` を参照。
+## Troubleshooting
 
-## トラブルシューティング
-
-### 検索結果が0件
+### Search returns 0 results
 
 ```bash
-# 依存パッケージの健全性を確認
 cd ~/.claude/plugins/local/agent-memory/scripts
 node -e "import('./_run.mjs').then(m=>m.runPython('_health.py'))"
 ```
 
-### Stop hookでキャプチャされない
+### Stop hook not capturing
 
-1. `settings.json` にStop hookのエントリがあるか確認
-2. `data/logs/capture.log` でエラーを確認
-3. 手動バックフィルで取り込む（上記「手動でセッションを取り込む」参照）
+1. Verify the Stop hook entry exists in `settings.json`
+2. Check `data/logs/capture.log` for errors
+3. Run manual backfill (see [Usage](#manual-backfill))
 
-### venvが壊れた場合
+### Broken venv
 
 ```bash
 rm -rf ~/.claude/plugins/local/agent-memory/scripts/.venv
-# Claude Codeのセッションを再起動すると自動再構築される
+# Restart Claude Code --- auto-rebuilds on next session
 ```
 
-### 完全リセット
+### Full reset
 
 ```bash
 rm ~/.claude/plugins/local/agent-memory/data/memory.db
 rm ~/.claude/plugins/local/agent-memory/data/backfill_complete
-# セッション再起動でDBを再構築し、バックフィルが実行される
+# Restart Claude Code --- rebuilds DB and runs backfill
 ```
 
-## 技術概要
+## How It Works
 
-検索はFTS5 trigram（3段階フォールバック: フレーズ → OR → LIKE）とベクトルKNN（ruri-v3-130m, 512次元）の結果をRRF(k=60)でマージし、関連度70% + 鮮度30%の2因子でリランキングする。ベクトル検索はモデル未ダウンロード時にも自動スキップされ、FTS5のみで動作する。
+```
+Session Start                  Session End                  Search (skill)
+     |                              |                            |
+ setup.sh (first run)         run-capture.sh               run-search.mjs
+     |                              |                            |
+ setup.mjs                    capture.py                    search.py
+ venv + model + backfill      JSONL diff parse              FTS5 + Vec
+     |                        chunks -> SQLite               RRF merge
+ inject.py                    backfill_vec.py               2-factor rerank
+ recent context -> stdout     embeddings (async)            hit_count update
+```
 
-内部アーキテクチャの詳細は [ARCHITECTURE.md](ARCHITECTURE.md) を参照。
+Search combines FTS5 trigram (3-stage fallback: phrase -> OR -> LIKE) and vector KNN (ruri-v3-130m, 512-dim), merged via RRF(k=60), then re-ranked by relevance (70%) + recency (30%). Vector search gracefully degrades when the model is not yet downloaded.
 
-## 既知の制約
+For full architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-- **Stop hookの手動設定が必要** — Claude Code [#29767](https://github.com/anthropics/claude-code/issues/29767) によりプラグインのStop hookが実行されない
-- **Windowsのコンソールフラッシュ** — プラグインhook実行時にウィンドウが一瞬表示される場合がある（[#15572](https://github.com/anthropics/claude-code/issues/15572)）。bashラッパーで軽減済み
-- **CPU推論のみ** — ベクトル埋め込みはCPUで動作。GPU未対応
-- **リアルタイム同期なし** — セッション中の会話は終了時にまとめて取り込まれる
+## Known Limitations
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| Stop hook requires manual setup | Medium | Claude Code [#29767](https://github.com/anthropics/claude-code/issues/29767) |
+| Windows console flash on hook | Low | Bash wrapper suppresses child windows ([#15572](https://github.com/anthropics/claude-code/issues/15572)) |
+| CPU inference only | Medium | GPU not supported for embeddings |
+| No real-time sync | Low | Conversations are captured at session end |
+
+## Requirements
+
+- Claude Code >= 1.0.0
+- Python >= 3.12
+- Node.js >= 18
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss.
+
+### Development setup
+
+```bash
+git clone https://github.com/jsakuta/agent-memory.git
+cd agent-memory/scripts
+uv venv .venv
+uv pip install -e .
+```
+
+## License
+
+[MIT](LICENSE)
