@@ -45,7 +45,7 @@ if (!py) {
 try {
   const result = execFileSync(py, [join(__dirname, "search.py"), query], {
     encoding: "utf8",
-    timeout: 10000,
+    timeout: 30000,
     env: PLUGIN_DATA ? { ...process.env, CLAUDE_PLUGIN_DATA: PLUGIN_DATA } : process.env,
   });
   if (result) process.stdout.write(result);

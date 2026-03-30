@@ -174,6 +174,19 @@ def process_session(jsonl_path: str, session_id: str, cwd: str,
         conn.close()
 
 
+def _resolve_gitbash_path(p: str) -> str:
+    """Convert Git Bash paths (/c/Users/...) to Windows paths (C:/Users/...).
+
+    Python's pathlib on Windows interprets /c/Users as C:\\c\\Users
+    (relative to current drive root), not C:\\Users.
+    """
+    import re
+    m = re.match(r'^/([a-zA-Z])/(.*)', p)
+    if m:
+        return f"{m.group(1).upper()}:/{m.group(2)}"
+    return p
+
+
 if __name__ == "__main__":
     logger = get_logger("capture")
 
@@ -190,7 +203,16 @@ if __name__ == "__main__":
         cwd = hook_input.get("cwd", "")
 
         if not transcript_path or not session_id:
+            logger.info(f"No transcript_path or session_id, skipping (keys={list(hook_input.keys())})")
             sys.exit(0)
+
+        # Resolve Git Bash paths on Windows
+        if sys.platform == "win32":
+            transcript_path = _resolve_gitbash_path(transcript_path)
+            if cwd:
+                cwd = _resolve_gitbash_path(cwd)
+
+        logger.info(f"Hook invoked: session={session_id}, path={transcript_path}")
 
         process_session(
             jsonl_path=transcript_path,

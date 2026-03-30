@@ -69,7 +69,7 @@ def backfill(batch_size: int = 100):
     logger = get_logger("backfill")
 
     # Resolve lock file path lazily (needs config)
-    LOCK_FILE = get_data_root() / "logs" / "backfill_vec.lock"
+    LOCK_FILE = get_data_root() / "data" / "logs" / "backfill_vec.lock"
 
     if not _acquire_lock():
         logger.info("Another backfill_vec is already running, skipping")
@@ -140,7 +140,7 @@ def _backfill_inner(batch_size: int, logger):
             try:
                 vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
                 conn.execute(
-                    "INSERT INTO vec_chunks(rowid, embedding) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO vec_chunks(rowid, embedding) VALUES (?, ?)",
                     (rowid, vec_bytes),
                 )
                 success += 1

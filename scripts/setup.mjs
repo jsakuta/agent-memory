@@ -13,7 +13,7 @@ const PLUGIN_DATA = process.env.CLAUDE_PLUGIN_DATA || PLUGIN_ROOT;
 
 function main() {
   // Ensure PLUGIN_DATA directories exist
-  for (const d of ["data", "logs", "inject_cache"]) {
+  for (const d of ["data", "data/logs", "inject_cache"]) {
     mkdirSync(join(PLUGIN_DATA, d), { recursive: true });
   }
 
@@ -55,6 +55,7 @@ function main() {
     execFileSync("uv", ["sync", "--project", PLUGIN_DATA], {
       stdio: "pipe",
       timeout: 180000,
+      windowsHide: true,
     });
     process.stderr.write("agent-memory: venv created via uv sync\n");
   } catch {
@@ -72,6 +73,7 @@ function main() {
       execFileSync(py, ["-m", "venv", venvDir], {
         stdio: "pipe",
         timeout: 30000,
+        windowsHide: true,
       });
     }
     const pipPy = platform() === "win32"
@@ -82,11 +84,13 @@ function main() {
       execFileSync(pipPy, ["-m", "pip", "--version"], {
         stdio: "pipe",
         timeout: 5000,
+        windowsHide: true,
       });
     } catch {
       execFileSync(pipPy, ["-m", "ensurepip", "--default-pip"], {
         stdio: "pipe",
         timeout: 30000,
+        windowsHide: true,
       });
     }
     // Install the known deps directly
@@ -98,6 +102,7 @@ function main() {
     execFileSync(pipPy, ["-m", "pip", "install", ...deps], {
       stdio: "pipe",
       timeout: 180000,
+      windowsHide: true,
     });
     process.stderr.write("agent-memory: venv created via pip\n");
     // Mark build complete only after successful install
@@ -132,6 +137,7 @@ function findPython() {
       const v = execFileSync(cmd, ["--version"], {
         encoding: "utf8",
         timeout: 5000,
+        windowsHide: true,
       });
       if (v.includes("Python 3")) return cmd;
     } catch {}

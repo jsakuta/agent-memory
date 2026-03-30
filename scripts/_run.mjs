@@ -53,6 +53,7 @@ export function runPython(scriptName, { stdin, timeout } = {}) {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
       env,
+      windowsHide: true,
     });
     if (result) process.stdout.write(result);
   } catch (e) {

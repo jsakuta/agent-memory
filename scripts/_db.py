@@ -6,7 +6,7 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
     """WAL + busy_timeout + sqlite-vec 拡張ロード"""
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=500")
+    conn.execute("PRAGMA busy_timeout=3000")
     # sqlite-vec 拡張
     conn.enable_load_extension(True)
     import sqlite_vec

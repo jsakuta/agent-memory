@@ -19,25 +19,13 @@ def get_data_root() -> Path:
     return get_plugin_root()
 
 def load_config() -> dict:
-    # 1. デフォルト設定（PLUGIN_ROOT 同梱）
     default_path = get_plugin_root() / "config" / "settings.default.toml"
-    if not default_path.exists():
-        # フォールバック: 旧名 settings.toml
-        default_path = get_plugin_root() / "config" / "settings.toml"
     with open(default_path, "rb") as f:
         config = tomllib.load(f)
-    # 2. ユーザー設定（上書きマージ）
-    #    PLUGIN_DATA が設定済み → PLUGIN_DATA/settings.toml
-    #    未設定（ローカル開発）→ PLUGIN_ROOT/config/settings.toml
-    plugin_data = os.environ.get("CLAUDE_PLUGIN_DATA")
-    if plugin_data:
-        user_path = Path(plugin_data) / "settings.toml"
-    else:
-        user_path = get_plugin_root() / "config" / "settings.toml"
-    if user_path.exists() and user_path.resolve() != default_path.resolve():
+    user_path = get_plugin_root() / "config" / "settings.toml"
+    if user_path.exists():
         with open(user_path, "rb") as f:
-            user_config = tomllib.load(f)
-        config.update(user_config)
+            config.update(tomllib.load(f))
     return config
 
 def get_db_path(config: dict | None = None) -> Path:
@@ -77,7 +65,7 @@ def compute_recency(days: float, hit_count: int,
 
 def get_logger(name: str):
     import logging
-    log_dir = get_data_root() / "logs"
+    log_dir = get_data_root() / "data" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"{name}.log"
     logger = logging.getLogger(name)
